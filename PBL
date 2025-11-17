@@ -1,0 +1,134 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import os
+
+# ==========================
+# 1. APP CONFIGURATION
+# ==========================
+st.set_page_config(layout="wide")
+st.title("India State-wise Crop Production Dashboard")
+
+# ==========================
+# 2. FILE SELECTION & LOADING
+# ==========================
+st.sidebar.header("Data Source Selection")
+
+# List available state CSV files
+available_files = {
+    "Maharashtra": "maharashtra_data (1).csv",
+    "Andhra Pradesh": "andhra_pradesh_data.csv",
+    "Assam": "assam_data.csv",
+    "Bihar": "bihar_data.csv",
+    "Haryana": "haryana_data.csv",
+    "Himachal Pradesh": "himachal_pradesh_data.csv"
+}
+
+# Dropdown to select state
+selected_state = 'Maharashtra'
+
+# Load the respective CSV file
+available_files = {'Maharashtra': 'maharashtra_data (1).csv', 'Andhra Pradesh': 'andhra_pradesh_data.csv', 'Assam': 'assam_data.csv', 'Bihar': 'bihar_data.data', 'Haryana': 'haryana_data.csv', 'Himachal Pradesh': 'himachal_pradesh_data.csv'}
+if not os.path.exists('file_path'):
+    st.error(f"❌ Data file for {'Maharashtra'} not found: {'file.path'}")
+    st.stop()
+df = pd.read_csv('file_path')
+df = pd.read_csv(file_path)
+
+df = pd.read_csv(file_path)
+# ==========================
+# 3. DATA PREPROCESSING
+# ==========================
+# If the 'year' column is in "2010-11" format, extract start year
+if 'year' in df.columns:
+    df['year_start'] = df['year'].astype(str).apply(lambda x: int(str(x).split('-')[0]) if '-' in str(x) else int(x))
+else:
+    st.warning("⚠️ 'year' column not found — some plots may not display properly.")
+
+# Clean data
+df = df.dropna(subset=['Crop', 'Production', 'Area', 'Yield'])
+
+# ==========================
+# 4. SIDEBAR FILTERS
+# ==========================
+st.sidebar.header("Filters")
+
+# Year Range
+if 'year_start' in df.columns:
+    min_year = int(df['year_start'].min())
+    max_year = int(df['year_start'].max())
+    year_range = st.sidebar.slider("Select Year Range:", min_year, max_year, (min_year, max_year))
+else:
+    year_range = None
+
+# Crop Filter
+crop_options = df['Crop'].unique().tolist()
+selected_crop = st.sidebar.selectbox("Select Crop:", options=crop_options)
+
+# Filter Data
+filtered_df = df.copy()
+if year_range:
+    filtered_df = filtered_df[(filtered_df['year_start'] >= year_range[0]) & (filtered_df['year_start'] <= year_range[1])]
+filtered_df = filtered_df[filtered_df['Crop'] == selected_crop]
+
+# ==========================
+# 5. MAIN DASHBOARD
+# ==========================
+st.markdown(f"### 📊 State: {selected_state} | Crop: {selected_crop}")
+
+if filtered_df.empty:
+    st.warning("No data available for the selected filters. Try adjusting the options.")
+    st.stop()
+
+col1, col2 = st.columns(2)
+
+# --------------------------------
+# Chart 1 – Production Trend
+# --------------------------------
+with col1:
+    st.subheader("Production Trend Over the Years")
+    if 'year_start' in filtered_df.columns:
+        fig1 = px.line(filtered_df, x='year_start', y='Production',
+                       labels={'year_start': 'Year', 'Production': 'Production (Tonnes)'},
+                       markers=True)
+        st.plotly_chart(fig1, use_container_width=True)
+    else:
+        st.info("Year column missing – cannot display trend chart.")
+
+# --------------------------------
+# Chart 2 – Area vs Production
+# --------------------------------
+with col1:
+    st.subheader("Area vs Production")
+    fig2 = px.scatter(filtered_df, x='Area', y='Production', color='season',
+                      labels={'Area': 'Area (Hectares)', 'Production': 'Production (Tonnes)'},
+                      trendline='ols')
+    st.plotly_chart(fig2, use_container_width=True)
+
+# --------------------------------
+# Chart 3 – Seasonal Production
+# --------------------------------
+#with col2:
+ #   st.subheader("Seasonal Production Distribution")
+  #  fig3 = px.bar(filtered_df, x='season', y='Production', color='season',
+   #               labels={'season': 'Season', 'Production': 'Total Production (Tonnes)'},
+    #              title=f"Production by Season ({selected_crop})")
+    #st.plotly_chart(fig3, use_container_width=True)
+
+# --------------------------------
+# Chart 4 – Yield Distribution
+# --------------------------------
+with col2:
+    st.subheader("Yield Distribution")
+    fig4 = px.box(filtered_df, y='Yield', points='all',
+                  labels={'Yield': 'Yield (Tonnes/Hectare)'})
+    st.plotly_chart(fig4, use_container_width=True)
+
+# ==========================
+# 6. SUMMARY STATISTICS
+# ==========================
+st.markdown("### 📈 Summary Statistics")
+summary = filtered_df[['Area', 'Production', 'Yield']].describe().T
+st.dataframe(summary)
+
+st.success("✅ Dashboard Loaded Successfully!")
